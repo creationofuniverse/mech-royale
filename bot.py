@@ -266,6 +266,7 @@ class Bot:
         self.mortar_lock = -99  # committed to a mortar lob until this time
         self.cover = None  # (x, y) hiding spot
         self.cover_t = -99
+        self.peek = False  # at cover with exactly one enemy in sight: hold and shoot
 
     # ------------------------------------------------------------------ helpers
 
@@ -297,14 +298,20 @@ class Bot:
         h = 9.0 if tgt.get("kind") == "mech" else 3.0
         return self.nav.los(m, (tx, ty, tz + h * 0.5)) or self.nav.los(m, (tx, ty, tz + h * 0.9))
 
-    def seen_by(self, enemies, p):
-        """Can any enemy's eye see a mech standing at ground point p (x, y, z)?"""
+    def seeing(self, enemies, p, stop=1):
+        """How many enemies' eyes see a mech standing at ground point p (x, y, z), counting up to `stop`."""
+        n = 0
         for e in enemies:
             ex, ey, ez = e["pos"]
             eye = (ex, ey, ez + 8.0)
             if self.nav.los(eye, (p[0], p[1], p[2] + 4.5)) or self.nav.los(eye, (p[0], p[1], p[2] + 8.5)):
-                return True
-        return False
+                n += 1
+                if n >= stop:
+                    break
+        return n
+
+    def seen_by(self, enemies, p):
+        return self.seeing(enemies, p) > 0
 
     def mortar_solve(self, me, tgt, w, lob):
         """Pitch to land a shell on the target's feet, leading it (fix #2). None if out of reach."""
@@ -331,18 +338,25 @@ class Bot:
             return None
         return yaw, pitch
 
-    def find_cover(self, me, enemies, zc, zr, t):
-        """A nearby reachable spot no visible enemy can see (fix #3). Cached; time-boxed."""
+    def find_cover(self, me, enemies, zc, zr, t, hp_frac=1.0):
+        """A nearby reachable spot no visible enemy can see (fix #3). Cached; time-boxed.
+        Sets self.peek when we should hold our corner and fight the one enemy that sees us."""
         if self.nav is None or not enemies:
             return None
         pos = me["pos"]
         if self.cover and t - self.cover_t < 1.0:
             return self.cover
         t0 = time.perf_counter()
-        near = sorted(enemies, key=lambda e: dist2(e["pos"], pos))[:3]
-        if not self.seen_by(near, pos):  # already hidden: stay
-            self.cover, self.cover_t = (pos[0], pos[1]), t
+        near = sorted(enemies, key=lambda e: dist2(e["pos"], pos))[:4]
+        n_see = self.seeing(near, pos, stop=2)
+        at_cover = self.cover is not None and dist2(self.cover, pos) < 6
+        # hidden, or holding our corner against a single peeker: stay and shoot it
+        if n_see == 0 or (n_see == 1 and hp_frac >= 0.25):
+            self.peek = n_see == 1
+            self.cover, self.cover_t = (pos[0], pos[1]) if not at_cover else self.cover, t
             return self.cover
+        self.peek = False
+        near = near[:3]
         cx = sum(e["pos"][0] for e in near) / len(near)
         cy = sum(e["pos"][1] for e in near) / len(near)
         nav = self.nav
@@ -488,7 +502,9 @@ class Bot:
         if enemies:
             def score(m):
                 d = math.dist(m["pos"], pos)
-                return d / 40 + (m.get("hp", 1400) / 1400) * 2.5
+                # an enemy we can actually shoot beats a closer one behind a wall
+                blocked = 0.0 if self.can_hit(me, m) else 4.0
+                return d / 40 + (m.get("hp", 1400) / 1400) * 2.5 + blocked
             target = min(enemies, key=score)
         npc_target = None
         if not target and npcs:
@@ -505,9 +521,11 @@ class Bot:
         # fix #3: outnumbered or hurt -> break line of sight and let them come round the corner one at a time
         threats = [m for m in enemies if dist2(m["pos"], pos) < 160]
         want_cover = bool(threats) and (hp_frac < 0.45 or (len(threats) >= 2 and hp_frac < 0.8) or len(threats) >= 3)
-        cover = self.find_cover(me, threats, cur_c, cur_r, t) if want_cover and not zone_danger else None
+        # cover must stay inside the circle the zone is heading to, not just the current one
+        cz_c, cz_r = (zc, zr) if zr < cur_r else (cur_c, cur_r)
+        cover = self.find_cover(me, threats, cz_c, cz_r, t, hp_frac) if want_cover and not zone_danger else None
         if not want_cover:
-            self.cover = None
+            self.cover, self.peek = None, False
         # fix #4: supply drops give full HP, full energy and 3 cubes
         drop = self.pick_drop(obs, me, enemies)
         retreat = cover is None and target is not None and hp_frac < 0.35 and target.get("hp", 1400) / max(target.get("max_hp", 1400), 1) > hp_frac + 0.1
@@ -523,7 +541,19 @@ class Bot:
                 boost = me["energy"] > 50 and dist2(d0["pos"], pos) > 40
         elif cover is not None:
             mode = "cover"
-            if dist2(cover, pos) > 2.0:
+            if self.peek and target is not None:
+                # one enemy round the corner: shoot it, sidestepping a little but staying at the corner
+                if t - self.strafe_t > 0.8 + self.rng.random() * 0.6:
+                    self.strafe, self.strafe_t = -self.strafe, t
+                to = math.atan2(target["pos"][1] - pos[1], target["pos"][0] - pos[0])
+                perp = to + self.strafe * math.pi / 2
+                sx, sy = math.cos(perp), math.sin(perp)
+                ox, oy = pos[0] - cover[0], pos[1] - cover[1]
+                if ox * sx + oy * sy > 3.0:  # far enough this way: come back
+                    self.strafe, self.strafe_t = -self.strafe, t
+                    sx, sy = -sx, -sy
+                move = [sx * 0.7, sy * 0.7]
+            elif dist2(cover, pos) > 2.0:
                 move = self.go(me, t, cover)
                 boost = me["energy"] > 40
         elif retreat:
