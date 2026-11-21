@@ -508,8 +508,7 @@ class Bot:
                 return d / 40 + (m.get("hp", 1400) / 1400) * 2.5 + blocked
             target = min(enemies, key=score)
         npc_target = None
-        healing = not enemies and hp_frac < 0.9  # TEST v20 heal
-        if not target and npcs and not healing:
+        if not target and npcs:
             npc_target = min(npcs, key=lambda m: math.dist(m["pos"], pos))
             if math.dist(npc_target["pos"], pos) > 70:
                 npc_target = None
@@ -625,23 +624,18 @@ class Bot:
                 if dist2(c["pos"], pos) < 80:
                     goal = c["pos"]
                     mode = "cube"
-            if goal is None and self.threat is not None and hp_frac > 0.9 and self.in_circle(self.threat[:2], zc, zr):
+            if goal is None and self.threat is not None and hp_frac > 0.3 and self.in_circle(self.threat[:2], zc, zr):  # TEST v22: keep hunting when hurt
                 # TEST v14 hunt: a heard or shooting hunter is nearby -> go meet it while it is alone
                 goal = self.threat[:2]
                 mode = "hunt"
-            if goal is None and obs.get("crates") and me["cubes"] < 10 and not healing:
+            if goal is None and obs.get("crates") and me["cubes"] < 10:
                 c = min(obs["crates"], key=lambda c: dist2(c["pos"], pos))
                 if dist2(c["pos"], pos) < 60 and abs(c["pos"][2] - pos[2]) < 4:
                     tgt = {"pos": c["pos"], "vel": [0, 0, 0], "kind": "crate", "id": c["id"]}
                     if dist2(c["pos"], pos) > 20:
                         goal = c["pos"]
                     mode = "crate"
-            if goal is None and healing and self.threat is not None:
-                mode = "heal"
-                cover = self.find_cover(me, [{"pos": [self.threat[0], self.threat[1], pos[2]]}], cz_c, cz_r, t, hp_frac)
-                if cover is not None and dist2(cover, pos) > 2.0:
-                    goal = cover
-            if goal is None and mode not in ("crate", "heal"):
+            if goal is None and mode != "crate":
                 # drift to a holding point inside the safe circle, then stand still (silent)
                 if self.home is None or not self.in_circle(self.home, zc, zr * 0.6) or self.home_t < zone["shrink_start"] - 200:
                     ang = self.rng.random() * 2 * math.pi
