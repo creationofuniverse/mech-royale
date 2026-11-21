@@ -437,6 +437,19 @@ class Bot:
 
     # ------------------------------------------------------------------ main
 
+    def _grab(self, obs, pos, tgt, zc, zr):
+        """A non-gun weapon much closer to us than the enemy is (so we get there first)."""
+        de = dist2(tgt["pos"], pos)
+        best = None
+        for p in obs.get("pickups", []):
+            if p["kind"] == "gun":
+                continue
+            d = dist2(p["pos"], pos)
+            if d < 45 and d < de * 0.6 and dist2(p["pos"], tgt["pos"]) > 30 and self.in_circle(p["pos"], zc, zr):
+                if best is None or d < best[0]:
+                    best = (d, p)
+        return best[1] if best else None
+
     def act(self, obs):
         t = obs["t"]
         me = obs["self"]
@@ -567,6 +580,10 @@ class Bot:
             goal = (pos[0] + 40 * math.cos(dirn), pos[1] + 40 * math.sin(dirn))
             move = self.go(me, t, goal)
             boost = me["energy"] > 20
+        elif tgt is not None and weapons[1] is None and self._grab(obs, pos, tgt, zc, zr) is not None:
+            mode = "grab"  # TEST v21: pick the weapon up first, then fight
+            move = self.go(me, t, self._grab(obs, pos, tgt, zc, zr)["pos"])
+            boost = me["energy"] > 30
         elif tgt is not None:
             mode = "fight"
             d = dist2(tgt["pos"], pos)
@@ -614,7 +631,8 @@ class Bot:
                     if weapons[1] is not None and WEAPON_RANK.get(p["kind"], 0) <= WEAPON_RANK.get(weapons[1]["kind"], 0):
                         continue
                     d = dist2(p["pos"], pos)
-                    if d < 120 and self.in_circle(p["pos"], zc, zr) and (best is None or d < best[0]):
+                    reach_w = 250 if weapons[1] is None else 120  # TEST v21 weapon first
+                    if d < reach_w and self.in_circle(p["pos"], zc, zr) and (best is None or d < best[0]):
                         best = (d, p)
                 if best:
                     goal = best[1]["pos"]
