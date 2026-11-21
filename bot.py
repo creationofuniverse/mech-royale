@@ -529,7 +529,7 @@ class Bot:
             self.cover, self.peek = None, False
         # fix #4: supply drops give full HP, full energy and 3 cubes
         drop = self.pick_drop(obs, me, enemies)
-        retreat = cover is None and target is not None and hp_frac < 0.35 and target.get("hp", 1400) / max(target.get("max_hp", 1400), 1) > hp_frac + 0.1
+        retreat = False  # TEST v13: never retreat, fight to the end
         if zone_danger:
             mode = "zone"
             move = self.go(me, t, zc)
