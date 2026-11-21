@@ -145,7 +145,7 @@ class Nav:
                 return False
         return True
 
-    def path(self, a, b, budget_s=0.012):
+    def path(self, a, b, budget_s=0.006):
         """A* from a to b; returns list of waypoints (world xy) or None."""
         t0 = time.perf_counter()
         si, sj = self.nearest_free(self.ci(a[0]), self.cj(a[1]))
@@ -197,9 +197,7 @@ class Nav:
         k = 0
         while k < len(pts):
             far = k
-            for m in range(len(pts) - 1, k - 1, -1):
-                if m - k > 40:
-                    continue
+            for m in range(min(len(pts) - 1, k + 24), k - 1, -4 if k + 24 - k > 8 else -1):
                 if self.line_free(anchor, pts[m]):
                     far = m
                     break
