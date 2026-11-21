@@ -565,9 +565,6 @@ class Bot:
             to_c = math.atan2(zc[1] - pos[1], zc[0] - pos[0])
             dirn = math.atan2(math.sin(away) * 2 + math.sin(to_c), math.cos(away) * 2 + math.cos(to_c))
             goal = (pos[0] + 40 * math.cos(dirn), pos[1] + 40 * math.sin(dirn))
-            hide = self.find_cover(me, threats or [target], cz_c, cz_r, t, 0.0)  # IDEA k1: break line of sight
-            if hide is not None and dist2(hide, pos) > 2.0:
-                goal = hide
             move = self.go(me, t, goal)
             boost = me["energy"] > 20
         elif tgt is not None:
