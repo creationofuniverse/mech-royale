@@ -505,13 +505,7 @@ class Bot:
                 d = math.dist(m["pos"], pos)
                 # an enemy we can actually shoot beats a closer one behind a wall
                 blocked = 0.0 if self.can_hit(me, m) else 4.0
-                # TEST v19 rear: an enemy facing away takes x1.5 damage -> worth ~1.5 hp-bars of preference
-                back = 0.0
-                if m.get("aim"):
-                    to_me = math.atan2(pos[1] - m["pos"][1], pos[0] - m["pos"][0])
-                    if abs(wrap(to_me - m["aim"][0])) > math.pi / 2:
-                        back = -1.2
-                return d / 40 + (m.get("hp", 1400) / 1400) * 2.5 + blocked + back
+                return d / 40 + (m.get("hp", 1400) / 1400) * 2.5 + blocked
             target = min(enemies, key=score)
         npc_target = None
         if not target and npcs:
@@ -593,14 +587,7 @@ class Bot:
                 radial = -0.8
             mx = math.cos(perp) * 0.8 + math.cos(to) * radial
             my = math.sin(perp) * 0.8 + math.sin(to) * radial
-            turned = False
-            if tgt.get("kind") == "mech" and tgt.get("aim"):
-                turned = abs(wrap(math.atan2(pos[1] - tgt["pos"][1], pos[0] - tgt["pos"][0]) - tgt["aim"][0])) > math.pi / 2
-            if turned and self.can_hit(me, tgt) and d > want:
-                # TEST v19 rear: walk straight at a mech that faces away, keeping it in our sights
-                move = [math.cos(to), math.sin(to)]
-                boost = me["energy"] > 40
-            elif d > want + 40 or (tgt.get("kind") == "mech" and not self.can_hit(me, tgt)):
+            if d > want + 40 or (tgt.get("kind") == "mech" and not self.can_hit(me, tgt)):
                 # TEST v12 brawl: close in fast, and chase round corners instead of waiting
                 move = self.go(me, t, tgt["pos"])
                 boost = me["energy"] > 50 and tgt.get("kind") == "mech"
