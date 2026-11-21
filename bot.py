@@ -256,6 +256,7 @@ class Bot:
         self.stuck_t = 0
         self.strafe = 1
         self.strafe_t = 0
+        self.strafe_len = 0.7
         self.threat = None  # (x, y, t) last known attacker position estimate
         self.last_hit_t = -99
         self.track = {}  # id -> (pos, vel, t, hp)
@@ -509,7 +510,7 @@ class Bot:
         npc_target = None
         if not target and npcs:
             npc_target = min(npcs, key=lambda m: math.dist(m["pos"], pos))
-            if math.dist(npc_target["pos"], pos) > (160 if me["cubes"] < 10 else 70) or hp_frac < 0.85:  # TEST farm: hunt drones for cubes, only when healthy (regen first)
+            if math.dist(npc_target["pos"], pos) > 70:
                 npc_target = None
 
         # ---- movement goal
@@ -573,9 +574,11 @@ class Bot:
             if tgt.get("kind") == "npc":
                 want = 25 if "lightning" in held else 40
             to = math.atan2(tgt["pos"][1] - pos[1], tgt["pos"][0] - pos[0])
-            if t - self.strafe_t > 1.2 + self.rng.random():
+            # TEST v9 dodge: zig-zag every 0.45-0.95 s so lead-aiming shooters miss
+            if t - self.strafe_t > self.strafe_len:
                 self.strafe = -self.strafe
                 self.strafe_t = t
+                self.strafe_len = 0.45 + self.rng.random() * 0.5
             perp = to + self.strafe * math.pi / 2
             radial = 0.0
             if d > want + 15:
@@ -595,6 +598,8 @@ class Bot:
                     my = math.sin(perp) * 0.8 + math.sin(to) * radial
                 n = math.hypot(mx, my) or 1
                 move = [mx / n, my / n]
+                # TEST v9 dodge: boost the sidestep when energy allows (keep some for lightning)
+                boost = me["energy"] > (60 if "lightning" in held else 35) and tgt.get("kind") == "mech"
         else:
             # calm: loot nearby weapons, cubes, crates; otherwise hold a spot inside the zone
             goal = None
@@ -614,12 +619,12 @@ class Bot:
                     mode = "loot"
             if goal is None and obs.get("cubes"):
                 c = min(obs["cubes"], key=lambda c: dist2(c["pos"], pos))
-                if dist2(c["pos"], pos) < 160:  # TEST farm
+                if dist2(c["pos"], pos) < 80:
                     goal = c["pos"]
                     mode = "cube"
-            if goal is None and obs.get("crates") and me["cubes"] < 10 and hp_frac >= 0.85:  # TEST farm: shooting resets regen
+            if goal is None and obs.get("crates") and me["cubes"] < 10:
                 c = min(obs["crates"], key=lambda c: dist2(c["pos"], pos))
-                if dist2(c["pos"], pos) < 140 and abs(c["pos"][2] - pos[2]) < 4:  # TEST farm
+                if dist2(c["pos"], pos) < 60 and abs(c["pos"][2] - pos[2]) < 4:
                     tgt = {"pos": c["pos"], "vel": [0, 0, 0], "kind": "crate", "id": c["id"]}
                     if dist2(c["pos"], pos) > 20:
                         goal = c["pos"]
