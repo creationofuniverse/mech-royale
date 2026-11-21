@@ -505,7 +505,7 @@ class Bot:
                 d = math.dist(m["pos"], pos)
                 # an enemy we can actually shoot beats a closer one behind a wall
                 blocked = 0.0 if self.can_hit(me, m) else 4.0
-                return d / 40 + (m.get("hp", 1400) / 1400) * 5.0 + blocked
+                return d / 40 + (m.get("hp", 1400) / 1400) * 2.5 + blocked
             target = min(enemies, key=score)
         npc_target = None
         if not target and npcs:
@@ -529,7 +529,7 @@ class Bot:
             self.cover, self.peek = None, False
         # fix #4: supply drops give full HP, full energy and 3 cubes
         drop = self.pick_drop(obs, me, enemies)
-        retreat = False and cover is None and target is not None and hp_frac < 0.35 and target.get("hp", 1400) / max(target.get("max_hp", 1400), 1) > hp_frac + 0.1
+        retreat = cover is None and target is not None and hp_frac < 0.35 and target.get("hp", 1400) / max(target.get("max_hp", 1400), 1) > hp_frac + 0.1
         if zone_danger:
             mode = "zone"
             move = self.go(me, t, zc)
