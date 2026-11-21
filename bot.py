@@ -570,7 +570,7 @@ class Bot:
         elif tgt is not None:
             mode = "fight"
             d = dist2(tgt["pos"], pos)
-            want = 30 if "lightning" in held else 70
+            want = 110  # TEST v10 kite: fight at long range, where zig-zag beats their aim and ours still lands
             if tgt.get("kind") == "npc":
                 want = 25 if "lightning" in held else 40
             to = math.atan2(tgt["pos"][1] - pos[1], tgt["pos"][0] - pos[0])
@@ -584,7 +584,7 @@ class Bot:
             if d > want + 15:
                 radial = 1.0
             elif d < want - 10:
-                radial = -0.8
+                radial = -1.0  # TEST v10 kite: back away harder
             mx = math.cos(perp) * 0.8 + math.cos(to) * radial
             my = math.sin(perp) * 0.8 + math.sin(to) * radial
             if d > want + 40:
