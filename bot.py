@@ -565,6 +565,9 @@ class Bot:
             to_c = math.atan2(zc[1] - pos[1], zc[0] - pos[0])
             dirn = math.atan2(math.sin(away) * 2 + math.sin(to_c), math.cos(away) * 2 + math.cos(to_c))
             goal = (pos[0] + 40 * math.cos(dirn), pos[1] + 40 * math.sin(dirn))
+            hide = self.find_cover(me, threats or [target], cz_c, cz_r, t, 0.0)  # IDEA k1: break line of sight
+            if hide is not None and dist2(hide, pos) > 2.0:
+                goal = hide
             move = self.go(me, t, goal)
             boost = me["energy"] > 20
         elif tgt is not None:
@@ -710,7 +713,7 @@ class Bot:
                     continue
                 k = w["kind"]
                 if k == "gun":
-                    if clear and mortar_aim is None and d < w["stats"]["range"] and err < max(0.06, 5.0 / max(d, 1)) and w.get("ammo", 1) > 0:
+                    if clear and mortar_aim is None and d < w["stats"]["range"] and err < max(0.04, 3.5 / max(d, 1)) and w.get("ammo", 1) > 0:
                         fire[i] = True
                 elif k == "lightning":
                     if clear and d < w["stats"]["range"] and abs(wrap(me["aim"][0] - math.atan2(tgt["pos"][1] - pos[1], tgt["pos"][0] - pos[0]))) < math.radians(w["stats"]["cone_deg"]) * 0.9 and me["energy"] > w["stats"].get("energy", 3):
