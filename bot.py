@@ -529,7 +529,7 @@ class Bot:
             self.cover, self.peek = None, False
         # fix #4: supply drops give full HP, full energy and 3 cubes
         drop = self.pick_drop(obs, me, enemies)
-        retreat = False  # TEST v13: never retreat, fight to the end
+        retreat = cover is None and target is not None and hp_frac < 0.35 and target.get("hp", 1400) / max(target.get("max_hp", 1400), 1) > hp_frac + 0.1
         if zone_danger:
             mode = "zone"
             move = self.go(me, t, zc)
@@ -624,6 +624,10 @@ class Bot:
                 if dist2(c["pos"], pos) < 80:
                     goal = c["pos"]
                     mode = "cube"
+            if goal is None and self.threat is not None and hp_frac > 0.6 and self.in_circle(self.threat[:2], zc, zr):
+                # TEST v14 hunt: a heard or shooting hunter is nearby -> go meet it while it is alone
+                goal = self.threat[:2]
+                mode = "hunt"
             if goal is None and obs.get("crates") and me["cubes"] < 10:
                 c = min(obs["crates"], key=lambda c: dist2(c["pos"], pos))
                 if dist2(c["pos"], pos) < 60 and abs(c["pos"][2] - pos[2]) < 4:
