@@ -18,10 +18,9 @@ import time
 import mechfight as mf
 
 CELL = 4.0  # navigation grid, meters
-PICK_PREF = ["armor", "plating", "nanites", "lightning_efficiency", "lightning_range", "lightning_chain",
-             "gun_damage", "gun_rate", "laser_damage", "laser_charge", "reactor", "capacitor",
-             "gun_velocity", "gun_mag", "servos", "jets", "gyros", "sensors",
-             "mortar_reload", "mortar_splash", "mortar_velocity", "laser_pierce"]
+PICK_PREF = ["gun_damage", "gun_rate", "lightning_efficiency", "lightning_range", "laser_damage", "laser_charge",  # TEST v23: attack first
+             "gun_mag", "gyros", "armor", "plating", "gun_velocity", "lightning_chain", "reactor", "capacitor",
+             "servos", "jets", "sensors", "mortar_reload", "mortar_splash", "mortar_velocity", "laser_pierce", "nanites"]
 WEAPON_RANK = {"lightning": 3, "laser": 2, "mortar": 1, "gun": 0}
 # sounds only a mech makes (not crates, drones, deaths, drops or blast points)
 HUNTER_SOUNDS = {"gun", "mortar", "laser", "laser_charge", "lightning", "jet", "step", "boost", "reload"}
@@ -624,7 +623,7 @@ class Bot:
                 if dist2(c["pos"], pos) < 80:
                     goal = c["pos"]
                     mode = "cube"
-            if goal is None and self.threat is not None and hp_frac > 0.3 and self.in_circle(self.threat[:2], zc, zr):  # TEST v22: keep hunting when hurt
+            if goal is None and self.threat is not None and hp_frac > 0.6 and self.in_circle(self.threat[:2], zc, zr):
                 # TEST v14 hunt: a heard or shooting hunter is nearby -> go meet it while it is alone
                 goal = self.threat[:2]
                 mode = "hunt"
