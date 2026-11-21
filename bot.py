@@ -710,7 +710,7 @@ class Bot:
                     continue
                 k = w["kind"]
                 if k == "gun":
-                    if clear and mortar_aim is None and d < w["stats"]["range"] and err < max(0.025, 2.0 / max(d, 1)) and w.get("ammo", 1) > 0:
+                    if clear and mortar_aim is None and d < w["stats"]["range"] and err < max(0.06, 5.0 / max(d, 1)) and w.get("ammo", 1) > 0:
                         fire[i] = True
                 elif k == "lightning":
                     if clear and d < w["stats"]["range"] and abs(wrap(me["aim"][0] - math.atan2(tgt["pos"][1] - pos[1], tgt["pos"][0] - pos[0]))) < math.radians(w["stats"]["cone_deg"]) * 0.9 and me["energy"] > w["stats"].get("energy", 3):
