@@ -520,7 +520,7 @@ class Bot:
         tgt = target or npc_target
         # fix #3: outnumbered or hurt -> break line of sight and let them come round the corner one at a time
         threats = [m for m in enemies if dist2(m["pos"], pos) < 160]
-        want_cover = bool(threats) and (hp_frac < 0.45 or (len(threats) >= 2 and hp_frac < 0.8) or len(threats) >= 3)
+        want_cover = False  # TEST v3: never hide
         # cover must stay inside the circle the zone is heading to, not just the current one
         cz_c, cz_r = (zc, zr) if zr < cur_r else (cur_c, cur_r)
         cover = self.find_cover(me, threats, cz_c, cz_r, t, hp_frac) if want_cover and not zone_danger else None
