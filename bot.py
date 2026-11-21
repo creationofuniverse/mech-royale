@@ -264,6 +264,7 @@ class Bot:
         self.prev_t = 0
         self.home = None
         self.home_t = 0
+        self.last_seen = None  # TEST v18: (x, y, t) where we last saw an enemy mech
         self.mortar_lock = -99  # committed to a mortar lob until this time
         self.cover = None  # (x, y) hiding spot
         self.cover_t = -99
@@ -467,14 +468,14 @@ class Bot:
         if t - self.last_hit_t > 2.0:
             best = None
             for s in obs.get("sounds", []):
-                if s.get("kind") not in HUNTER_SOUNDS or s.get("age", 9) > 1.0:  # TEST v17: far sounds too
+                if s.get("kind") not in HUNTER_SOUNDS or s.get("dist") == "far" or s.get("age", 9) > 1.0:
                     continue
-                rank = ({"near": 0, "mid": 1}.get(s["dist"], 2), s.get("age", 0))
+                rank = (0 if s["dist"] == "near" else 1, s.get("age", 0))
                 if best is None or rank < best[0]:
                     best = (rank, s)
             if best:
                 s = best[1]
-                r = {"near": 40, "mid": 110}.get(s["dist"], 220)
+                r = 40 if s["dist"] == "near" else 110
                 b = s["bearing"]
                 self.threat = (pos[0] + r * math.cos(b), pos[1] + r * math.sin(b), t, b, 4.0)
         if self.threat and t - self.threat[2] > self.threat[4]:
@@ -519,6 +520,10 @@ class Bot:
         jump = False
         mode = "hold"
         tgt = target or npc_target
+        if target is not None:
+            self.last_seen = (target["pos"][0], target["pos"][1], t)
+        elif self.last_seen and (t - self.last_seen[2] > 20 or dist2(self.last_seen, pos) < 10):
+            self.last_seen = None  # stale, or we got there and found nothing
         # fix #3: outnumbered or hurt -> break line of sight and let them come round the corner one at a time
         threats = [m for m in enemies if dist2(m["pos"], pos) < 160]
         want_cover = False  # TEST v3: never hide
@@ -628,6 +633,10 @@ class Bot:
                 # TEST v14 hunt: a heard or shooting hunter is nearby -> go meet it while it is alone
                 goal = self.threat[:2]
                 mode = "hunt"
+            if goal is None and self.last_seen is not None and hp_frac > 0.6 and self.in_circle(self.last_seen[:2], zc, zr):
+                # TEST v18 chase: go where the enemy was last seen
+                goal = self.last_seen[:2]
+                mode = "chase"
             if goal is None and obs.get("crates") and me["cubes"] < 10:
                 c = min(obs["crates"], key=lambda c: dist2(c["pos"], pos))
                 if dist2(c["pos"], pos) < 60 and abs(c["pos"][2] - pos[2]) < 4:
