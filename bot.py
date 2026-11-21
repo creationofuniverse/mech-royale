@@ -570,7 +570,7 @@ class Bot:
         elif tgt is not None:
             mode = "fight"
             d = dist2(tgt["pos"], pos)
-            want = 110  # TEST v10 kite: fight at long range, where zig-zag beats their aim and ours still lands
+            want = 25 if "lightning" in held else 35  # TEST v12 brawl: close range, where our hits land and lightning works
             if tgt.get("kind") == "npc":
                 want = 25 if "lightning" in held else 40
             to = math.atan2(tgt["pos"][1] - pos[1], tgt["pos"][0] - pos[0])
@@ -584,11 +584,13 @@ class Bot:
             if d > want + 15:
                 radial = 1.0
             elif d < want - 10:
-                radial = -1.0  # TEST v10 kite: back away harder
+                radial = -0.8
             mx = math.cos(perp) * 0.8 + math.cos(to) * radial
             my = math.sin(perp) * 0.8 + math.sin(to) * radial
-            if d > want + 40:
+            if d > want + 40 or (tgt.get("kind") == "mech" and not self.can_hit(me, tgt)):
+                # TEST v12 brawl: close in fast, and chase round corners instead of waiting
                 move = self.go(me, t, tgt["pos"])
+                boost = me["energy"] > 50 and tgt.get("kind") == "mech"
             else:
                 if self.nav is not None and not self.nav.line_free(pos, (pos[0] + mx * 6, pos[1] + my * 6)):
                     # strafing into a wall: switch sides
