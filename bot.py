@@ -467,14 +467,14 @@ class Bot:
         if t - self.last_hit_t > 2.0:
             best = None
             for s in obs.get("sounds", []):
-                if s.get("kind") not in HUNTER_SOUNDS or s.get("dist") == "far" or s.get("age", 9) > 1.0:
+                if s.get("kind") not in HUNTER_SOUNDS or s.get("age", 9) > 1.0:  # TEST v17: far sounds too
                     continue
-                rank = (0 if s["dist"] == "near" else 1, s.get("age", 0))
+                rank = ({"near": 0, "mid": 1}.get(s["dist"], 2), s.get("age", 0))
                 if best is None or rank < best[0]:
                     best = (rank, s)
             if best:
                 s = best[1]
-                r = 40 if s["dist"] == "near" else 110
+                r = {"near": 40, "mid": 110}.get(s["dist"], 220)
                 b = s["bearing"]
                 self.threat = (pos[0] + r * math.cos(b), pos[1] + r * math.sin(b), t, b, 4.0)
         if self.threat and t - self.threat[2] > self.threat[4]:
@@ -614,7 +614,7 @@ class Bot:
                     if weapons[1] is not None and WEAPON_RANK.get(p["kind"], 0) <= WEAPON_RANK.get(weapons[1]["kind"], 0):
                         continue
                     d = dist2(p["pos"], pos)
-                    if d < (200 if "lightning" not in held else 120) and self.in_circle(p["pos"], zc, zr) and (best is None or d < best[0]):  # TEST v15: travel further for a weapon
+                    if d < 120 and self.in_circle(p["pos"], zc, zr) and (best is None or d < best[0]):
                         best = (d, p)
                 if best:
                     goal = best[1]["pos"]
