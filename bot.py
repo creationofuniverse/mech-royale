@@ -509,7 +509,7 @@ class Bot:
         npc_target = None
         if not target and npcs:
             npc_target = min(npcs, key=lambda m: math.dist(m["pos"], pos))
-            if math.dist(npc_target["pos"], pos) > 70:
+            if math.dist(npc_target["pos"], pos) > (160 if me["cubes"] < 10 else 70) or hp_frac < 0.85:  # TEST farm: hunt drones for cubes, only when healthy (regen first)
                 npc_target = None
 
         # ---- movement goal
@@ -614,12 +614,12 @@ class Bot:
                     mode = "loot"
             if goal is None and obs.get("cubes"):
                 c = min(obs["cubes"], key=lambda c: dist2(c["pos"], pos))
-                if dist2(c["pos"], pos) < 80:
+                if dist2(c["pos"], pos) < 160:  # TEST farm
                     goal = c["pos"]
                     mode = "cube"
-            if goal is None and obs.get("crates") and me["cubes"] < 10:
+            if goal is None and obs.get("crates") and me["cubes"] < 10 and hp_frac >= 0.85:  # TEST farm: shooting resets regen
                 c = min(obs["crates"], key=lambda c: dist2(c["pos"], pos))
-                if dist2(c["pos"], pos) < 60 and abs(c["pos"][2] - pos[2]) < 4:
+                if dist2(c["pos"], pos) < 140 and abs(c["pos"][2] - pos[2]) < 4:  # TEST farm
                     tgt = {"pos": c["pos"], "vel": [0, 0, 0], "kind": "crate", "id": c["id"]}
                     if dist2(c["pos"], pos) > 20:
                         goal = c["pos"]
