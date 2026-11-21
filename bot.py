@@ -437,19 +437,6 @@ class Bot:
 
     # ------------------------------------------------------------------ main
 
-    def _grab(self, obs, pos, tgt, zc, zr):
-        """A non-gun weapon much closer to us than the enemy is (so we get there first)."""
-        de = dist2(tgt["pos"], pos)
-        best = None
-        for p in obs.get("pickups", []):
-            if p["kind"] == "gun":
-                continue
-            d = dist2(p["pos"], pos)
-            if d < 45 and d < de * 0.6 and dist2(p["pos"], tgt["pos"]) > 30 and self.in_circle(p["pos"], zc, zr):
-                if best is None or d < best[0]:
-                    best = (d, p)
-        return best[1] if best else None
-
     def act(self, obs):
         t = obs["t"]
         me = obs["self"]
@@ -521,7 +508,8 @@ class Bot:
                 return d / 40 + (m.get("hp", 1400) / 1400) * 2.5 + blocked
             target = min(enemies, key=score)
         npc_target = None
-        if not target and npcs:
+        healing = not enemies and hp_frac < 0.9  # TEST v20 heal
+        if not target and npcs and not healing:
             npc_target = min(npcs, key=lambda m: math.dist(m["pos"], pos))
             if math.dist(npc_target["pos"], pos) > 70:
                 npc_target = None
@@ -580,10 +568,6 @@ class Bot:
             goal = (pos[0] + 40 * math.cos(dirn), pos[1] + 40 * math.sin(dirn))
             move = self.go(me, t, goal)
             boost = me["energy"] > 20
-        elif tgt is not None and weapons[1] is None and self._grab(obs, pos, tgt, zc, zr) is not None:
-            mode = "grab"  # TEST v21: pick the weapon up first, then fight
-            move = self.go(me, t, self._grab(obs, pos, tgt, zc, zr)["pos"])
-            boost = me["energy"] > 30
         elif tgt is not None:
             mode = "fight"
             d = dist2(tgt["pos"], pos)
@@ -631,8 +615,7 @@ class Bot:
                     if weapons[1] is not None and WEAPON_RANK.get(p["kind"], 0) <= WEAPON_RANK.get(weapons[1]["kind"], 0):
                         continue
                     d = dist2(p["pos"], pos)
-                    reach_w = 250 if weapons[1] is None else 120  # TEST v21 weapon first
-                    if d < reach_w and self.in_circle(p["pos"], zc, zr) and (best is None or d < best[0]):
+                    if d < 120 and self.in_circle(p["pos"], zc, zr) and (best is None or d < best[0]):
                         best = (d, p)
                 if best:
                     goal = best[1]["pos"]
@@ -642,18 +625,23 @@ class Bot:
                 if dist2(c["pos"], pos) < 80:
                     goal = c["pos"]
                     mode = "cube"
-            if goal is None and self.threat is not None and hp_frac > 0.6 and self.in_circle(self.threat[:2], zc, zr):
+            if goal is None and self.threat is not None and hp_frac > 0.9 and self.in_circle(self.threat[:2], zc, zr):
                 # TEST v14 hunt: a heard or shooting hunter is nearby -> go meet it while it is alone
                 goal = self.threat[:2]
                 mode = "hunt"
-            if goal is None and obs.get("crates") and me["cubes"] < 10:
+            if goal is None and obs.get("crates") and me["cubes"] < 10 and not healing:
                 c = min(obs["crates"], key=lambda c: dist2(c["pos"], pos))
                 if dist2(c["pos"], pos) < 60 and abs(c["pos"][2] - pos[2]) < 4:
                     tgt = {"pos": c["pos"], "vel": [0, 0, 0], "kind": "crate", "id": c["id"]}
                     if dist2(c["pos"], pos) > 20:
                         goal = c["pos"]
                     mode = "crate"
-            if goal is None and mode != "crate":
+            if goal is None and healing and self.threat is not None:
+                mode = "heal"
+                cover = self.find_cover(me, [{"pos": [self.threat[0], self.threat[1], pos[2]]}], cz_c, cz_r, t, hp_frac)
+                if cover is not None and dist2(cover, pos) > 2.0:
+                    goal = cover
+            if goal is None and mode not in ("crate", "heal"):
                 # drift to a holding point inside the safe circle, then stand still (silent)
                 if self.home is None or not self.in_circle(self.home, zc, zr * 0.6) or self.home_t < zone["shrink_start"] - 200:
                     ang = self.rng.random() * 2 * math.pi
