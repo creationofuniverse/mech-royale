@@ -18,9 +18,10 @@ import time
 import mechfight as mf
 
 CELL = 4.0  # navigation grid, meters
-PICK_PREF = ["gun_damage", "gun_rate", "lightning_efficiency", "lightning_range", "laser_damage", "laser_charge",  # TEST v23: attack first
-             "gun_mag", "gyros", "armor", "plating", "gun_velocity", "lightning_chain", "reactor", "capacitor",
-             "servos", "jets", "sensors", "mortar_reload", "mortar_splash", "mortar_velocity", "laser_pierce", "nanites"]
+PICK_PREF = ["armor", "plating", "nanites", "lightning_efficiency", "lightning_range", "lightning_chain",
+             "gun_damage", "gun_rate", "laser_damage", "laser_charge", "reactor", "capacitor",
+             "gun_velocity", "gun_mag", "servos", "jets", "gyros", "sensors",
+             "mortar_reload", "mortar_splash", "mortar_velocity", "laser_pierce"]
 WEAPON_RANK = {"lightning": 3, "laser": 2, "mortar": 1, "gun": 0}
 # sounds only a mech makes (not crates, drones, deaths, drops or blast points)
 HUNTER_SOUNDS = {"gun", "mortar", "laser", "laser_charge", "lightning", "jet", "step", "boost", "reload"}
@@ -504,7 +505,13 @@ class Bot:
                 d = math.dist(m["pos"], pos)
                 # an enemy we can actually shoot beats a closer one behind a wall
                 blocked = 0.0 if self.can_hit(me, m) else 4.0
-                return d / 40 + (m.get("hp", 1400) / 1400) * 2.5 + blocked
+                # TEST v19 rear: an enemy facing away takes x1.5 damage -> worth ~1.5 hp-bars of preference
+                back = 0.0
+                if m.get("aim"):
+                    to_me = math.atan2(pos[1] - m["pos"][1], pos[0] - m["pos"][0])
+                    if abs(wrap(to_me - m["aim"][0])) > math.pi / 2:
+                        back = -1.2
+                return d / 40 + (m.get("hp", 1400) / 1400) * 2.5 + blocked + back
             target = min(enemies, key=score)
         npc_target = None
         if not target and npcs:
@@ -586,7 +593,14 @@ class Bot:
                 radial = -0.8
             mx = math.cos(perp) * 0.8 + math.cos(to) * radial
             my = math.sin(perp) * 0.8 + math.sin(to) * radial
-            if d > want + 40 or (tgt.get("kind") == "mech" and not self.can_hit(me, tgt)):
+            turned = False
+            if tgt.get("kind") == "mech" and tgt.get("aim"):
+                turned = abs(wrap(math.atan2(pos[1] - tgt["pos"][1], pos[0] - tgt["pos"][0]) - tgt["aim"][0])) > math.pi / 2
+            if turned and self.can_hit(me, tgt) and d > want:
+                # TEST v19 rear: walk straight at a mech that faces away, keeping it in our sights
+                move = [math.cos(to), math.sin(to)]
+                boost = me["energy"] > 40
+            elif d > want + 40 or (tgt.get("kind") == "mech" and not self.can_hit(me, tgt)):
                 # TEST v12 brawl: close in fast, and chase round corners instead of waiting
                 move = self.go(me, t, tgt["pos"])
                 boost = me["energy"] > 50 and tgt.get("kind") == "mech"
@@ -709,7 +723,7 @@ class Bot:
                     continue
                 k = w["kind"]
                 if k == "gun":
-                    if clear and mortar_aim is None and d < w["stats"]["range"] and err < max(0.04, 3.5 / max(d, 1)) and w.get("ammo", 1) > 0:
+                    if clear and mortar_aim is None and d < w["stats"]["range"] and err < max(0.025, 2.0 / max(d, 1)) and w.get("ammo", 1) > 0:
                         fire[i] = True
                 elif k == "lightning":
                     if clear and d < w["stats"]["range"] and abs(wrap(me["aim"][0] - math.atan2(tgt["pos"][1] - pos[1], tgt["pos"][0] - pos[0]))) < math.radians(w["stats"]["cone_deg"]) * 0.9 and me["energy"] > w["stats"].get("energy", 3):
