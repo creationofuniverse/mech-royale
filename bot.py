@@ -614,7 +614,7 @@ class Bot:
                     if weapons[1] is not None and WEAPON_RANK.get(p["kind"], 0) <= WEAPON_RANK.get(weapons[1]["kind"], 0):
                         continue
                     d = dist2(p["pos"], pos)
-                    if d < 120 and self.in_circle(p["pos"], zc, zr) and (best is None or d < best[0]):
+                    if d < (200 if "lightning" not in held else 120) and self.in_circle(p["pos"], zc, zr) and (best is None or d < best[0]):  # TEST v15: travel further for a weapon
                         best = (d, p)
                 if best:
                     goal = best[1]["pos"]
